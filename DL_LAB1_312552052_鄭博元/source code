@@ -1,0 +1,147 @@
+import numpy as np
+import matplotlib.pyplot as plt
+
+# Sigmoid function and its derivative
+def sigmoid(x):
+    return 1 / (1 + np.exp(-x))
+
+def sigmoid_derivative(x):
+    return x * (1 - x)
+
+# Generate data
+def generate_linear(n=100):
+    np.random.seed(0)
+    pts = np.random.uniform(0, 1, (n, 2))
+    inputs = []
+    labels = []
+    for pt in pts:
+        inputs.append([pt[0], pt[1]])
+        if pt[0] > pt[1]:
+            labels.append(0)
+        else:
+            labels.append(1)
+    return np.array(inputs), np.array(labels).reshape(n, 1)
+
+def generate_XOR_easy():
+    inputs = []
+    labels = []
+    for i in range(11):
+        inputs.append([0.1 * i, 0.1 * i])
+        labels.append(0)
+        if 0.1 * i == 0.5:
+            continue
+        inputs.append([0.1 * i, 1 - 0.1 * i])
+        labels.append(1)
+    return np.array(inputs), np.array(labels).reshape(21, 1)
+
+# Neural network class
+class NeuralNetwork:
+    def __init__(self, input_size, hidden_layer1_size, hidden_layer2_size, output_size, learning_rate):
+        self.learning_rate = learning_rate
+        self.W1 = np.random.rand(input_size, hidden_layer1_size)
+        self.W2 = np.random.rand(hidden_layer1_size, hidden_layer2_size)
+        self.W3 = np.random.rand(hidden_layer2_size, output_size)
+
+    def forward(self, X):
+        self.Z1 = sigmoid(np.dot(X, self.W1))
+        self.Z2 = sigmoid(np.dot(self.Z1, self.W2))
+        self.y_pred = sigmoid(np.dot(self.Z2, self.W3))
+        return self.y_pred
+
+    def backward(self, X, y):
+        error = self.y_pred - y
+        d_output = error * sigmoid_derivative(self.y_pred)
+
+        error_hidden2 = d_output.dot(self.W3.T)
+        d_hidden2 = error_hidden2 * sigmoid_derivative(self.Z2)
+
+        error_hidden1 = d_hidden2.dot(self.W2.T)
+        d_hidden1 = error_hidden1 * sigmoid_derivative(self.Z1)
+
+        self.W3 -= self.Z2.T.dot(d_output) * self.learning_rate
+        self.W2 -= self.Z1.T.dot(d_hidden2) * self.learning_rate
+        self.W1 -= X.T.dot(d_hidden1) * self.learning_rate
+
+    def train(self, X, y, epochs):
+        self.training_losses = []
+        for epoch in range(epochs):
+            self.forward(X)
+            self.backward(X, y)
+            if epoch % 5000 == 0:
+                loss = np.mean(np.square(y - self.y_pred))
+                self.training_losses.append(loss)
+                prediction_sample = self.predict(X[:1])
+                print(f'Epoch {epoch}, Loss: {loss}, Prediction: {prediction_sample.flatten()}')
+
+    def predict(self, X):
+        return self.forward(X)
+
+# Plotting function
+def show_result(X, y, pred_y):
+    plt.figure(figsize=(10, 5))
+    plt.subplot(1, 2, 1)
+    plt.title('Ground truth', fontsize=18)
+    for i in range(X.shape[0]):
+        if y[i] == 0:
+            plt.plot(X[i][0], X[i][1], 'ro')
+        else:
+            plt.plot(X[i][0], X[i][1], 'bo')
+
+    plt.subplot(1, 2, 2)
+    plt.title('Predict result', fontsize=18)
+    for i in range(X.shape[0]):
+        if pred_y[i] < 0.5:
+            plt.plot(X[i][0], X[i][1], 'ro')
+        else:
+            plt.plot(X[i][0], X[i][1], 'bo')
+    plt.show()
+
+# Main script
+X, y = generate_linear(n=100)
+m, n = generate_XOR_easy()
+
+input_size = 2
+hidden_layer1_size = 10  # 增加隐藏层神经元数量
+hidden_layer2_size = 10  # 增加隐藏层神经元数量
+output_size = 1
+learning_rate = 0.01  # 调整学习率
+epochs = 100000
+
+nn = NeuralNetwork(input_size, hidden_layer1_size, hidden_layer2_size, output_size, learning_rate)
+nn.train(X, y, epochs)
+
+predictions = nn.predict(X)
+show_result(X, y, predictions > 0.5)
+
+tt = NeuralNetwork(input_size, hidden_layer1_size, hidden_layer2_size, output_size, learning_rate)
+tt.train(m, n, epochs)
+
+predictionss = tt.predict(m)
+show_result(m, n, predictionss > 0.5)
+
+# Plot the training loss
+plt.plot(np.arange(0, epochs, 5000), nn.training_losses, label="Linear Data")
+plt.plot(np.arange(0, epochs, 5000), tt.training_losses, label="XOR Data")
+plt.legend()
+plt.title('Training Loss')
+plt.xlabel('Epoch')
+plt.ylabel('Loss')
+plt.show()
+
+# Print the testing results
+print("\nTesting Results (Linear Data):")
+for i in range(10):
+    print(f"Iter{i+91} | Ground truth: {y[i][0]} | prediction: {predictions[i][0]:.5f}")
+
+print("\nTesting Results (XOR Data):")
+for i in range(10):
+    print(f"Iter{i+91} | Ground truth: {n[i][0]} | prediction: {predictionss[i][0]:.5f}")
+
+# Calculate and print the final loss and accuracy
+final_loss_linear = np.mean(np.square(y - predictions))
+accuracy_linear = np.mean((predictions > 0.5) == y)
+print(f"\nFinal loss (Linear Data): {final_loss_linear:.5f}, accuracy: {accuracy_linear * 100:.2f}%")
+
+final_loss_xor = np.mean(np.square(n - predictionss))
+accuracy_xor = np.mean((predictionss > 0.5) == n)
+print(f"\nFinal loss (XOR Data): {final_loss_xor:.5f}, accuracy: {accuracy_xor * 100:.2f}%")
